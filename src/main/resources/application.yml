@@ -1,0 +1,27 @@
+# Configuration for the meetup-agent.
+#
+# Values support ${ENV_VAR:default} placeholders: the environment variable wins
+# when set, otherwise the default after ':' is used.
+telegram:
+  # Bot token from @BotFather. Keep secrets out of VCS by leaving this as an
+  # env placeholder and exporting TELEGRAM_BOT_TOKEN at runtime.
+  botToken: ${TELEGRAM_BOT_TOKEN:}
+  # Channel @username (public) or numeric chat id.
+  chatId: ${TELEGRAM_CHAT_ID:}
+
+meetup:
+  city: ${MEETUP_CITY:Amsterdam}
+  maxResults: ${MEETUP_MAX_RESULTS:15}
+  # File used to remember which meetups were already posted, so re-runs don't
+  # post duplicates to the channel. One Luma event id per line.
+  cacheFile: ${MEETUP_CACHE_FILE:.meetup-cache/posted.txt}
+
+llm:
+  # Local LLM served by Ollama (no API key needed). The Koog AI agent talks to a
+  # locally running model that supports tool calling. Pull it first with:
+  #   ollama pull qwen2.5
+  # Other good tool-capable options: llama3.1, mistral-nemo, qwen2.5:14b.
+  # When the model name is empty, the agent falls back to a deterministic
+  # (non-LLM) flow that still discovers and posts meetups.
+  baseUrl: ${OLLAMA_BASE_URL:http://localhost:11434}
+  model: ${LLM_MODEL:mistral-nemo}
