@@ -22,6 +22,9 @@ object DigestFormatter {
                     .append(escape(meetup.name)).append("</a>\n")
                 append("   \uD83D\uDD52 ").append(escape(meetup.localStart))
                 meetup.city?.let { append("  \u2022  \uD83D\uDCCD ").append(escape(it)) }
+                meetup.price?.takeIf { it.isNotBlank() }?.let {
+                    append("  \u2022  \uD83D\uDCB6 ").append(escape(it))
+                }
                 append("\n")
                 meetup.summary?.takeIf { it.isNotBlank() }?.let {
                     append("   \uD83D\uDCDD <i>").append(escape(it)).append("</i>\n")

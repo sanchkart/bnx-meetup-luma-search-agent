@@ -40,12 +40,12 @@ class TelegramClient(
             append("&text=").append(enc(text))
         }
         val request = HttpRequest.newBuilder(URI.create("$baseUrl/bot$botToken/sendMessage"))
-            .header("content-type", "application/x-www-form-urlencoded")
+            .header("content-type", "application/x-www-form-urlencoded; charset=UTF-8")
             .timeout(Duration.ofSeconds(20))
-            .POST(HttpRequest.BodyPublishers.ofString(form))
+            .POST(HttpRequest.BodyPublishers.ofString(form, StandardCharsets.UTF_8))
             .build()
 
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
         val body = runCatching { json.parseToJsonElement(response.body()).jsonObject }.getOrNull()
         val ok = body?.get("ok")?.jsonPrimitive?.content == "true"
         check(response.statusCode() == 200 && ok) {

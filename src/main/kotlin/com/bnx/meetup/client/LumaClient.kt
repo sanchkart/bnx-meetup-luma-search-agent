@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.URI
@@ -40,8 +41,12 @@ class LumaClient(
     /**
      * Fetches upcoming events for the given [city] (case-insensitive match against
      * Luma's `geo_address_info.city`), optionally keeping only those whose title
-     * matches one of [keywords]. Pagination stops once [maxResults] matches are
-     * collected or [maxPages] have been scanned.
+     * matches one of [keywords].
+     *
+     * Free events are prioritized: pagination keeps scanning until [maxResults] free
+     * events are collected (or [maxPages] / the over-fetch cap is reached), and the
+     * final selection contains free events first, topped up with paid events only
+     * when there are not enough free ones.
      */
     fun findEvents(
         city: String,
@@ -55,8 +60,11 @@ class LumaClient(
         val seen = mutableSetOf<String>()
         var cursor: String? = null
         var page = 0
+        val overFetchLimit = maxResults * OVERFETCH_FACTOR
 
-        while (page < maxPages && matches.size < maxResults) {
+        fun enoughFree() = matches.count { isFree(it) } >= maxResults
+
+        while (page < maxPages && !enoughFree() && matches.size < overFetchLimit) {
             val root = fetchPage(cursor, pageSize)
             val entries = root["entries"] as? JsonArray ?: break
 
@@ -73,8 +81,8 @@ class LumaClient(
                 // Only surface events whose registration is currently open (not sold-out
                 // or waitlist-only).
                 if (!isRegistrationOpen(detail.availability)) continue
-                matches += meetup.copy(summary = detail.summary)
-                if (matches.size >= maxResults) break
+                matches += meetup.copy(summary = detail.summary, price = detail.price)
+                if (enoughFree() || matches.size >= overFetchLimit) break
             }
 
             val hasMore = root["has_more"]?.jsonPrimitive?.boolean ?: false
@@ -83,11 +91,11 @@ class LumaClient(
             page++
         }
 
-        return matches.sortedBy { it.startAt }
+        return prioritizeFree(matches, maxResults)
     }
 
-    /** Registration status plus a short summary, derived from an event's detail page. */
-    private data class EventDetail(val availability: String?, val summary: String?)
+    /** Registration status, a short summary and the ticket price, derived from an event's detail page. */
+    private data class EventDetail(val availability: String?, val summary: String?, val price: String?)
 
     /**
      * Fetches the per-event detail endpoint (`/url?url=<slug>`) and extracts both the
@@ -99,12 +107,13 @@ class LumaClient(
         return runCatching {
             val encodedSlug = URLEncoder.encode(slug, StandardCharsets.UTF_8)
             val response = httpGet("$baseUrl/url?url=$encodedSlug")
-            if (response.statusCode() != 200) return@runCatching EventDetail(null, null)
+            if (response.statusCode() != 200) return@runCatching EventDetail(null, null, null)
             val data = json.parseToJsonElement(response.body()).jsonObject["data"]?.jsonObject
             val availability = data?.get("registration_availability")?.jsonPrimitive?.contentOrNull()
             val summary = data?.get("description_mirror")?.let { summarize(it) }
-            EventDetail(availability, summary)
-        }.getOrElse { EventDetail(null, null) }
+            val price = data?.get("ticket_info")?.jsonObject?.let { formatPrice(it) }
+            EventDetail(availability, summary, price)
+        }.getOrElse { EventDetail(null, null, null) }
     }
 
     private fun fetchPage(cursor: String?, pageSize: Int): JsonObject {
@@ -177,6 +186,26 @@ class LumaClient(
         /** True if the event has not started yet relative to [now]. */
         internal fun isUpcoming(meetup: Meetup, now: OffsetDateTime): Boolean =
             meetup.startAt.isAfter(now)
+
+        /**
+         * How many matches (as a multiple of `maxResults`) we are willing to collect
+         * while hunting for enough free events before settling for paid ones.
+         */
+        private const val OVERFETCH_FACTOR = 3
+
+        /** True when the event costs nothing to attend (an unknown price is treated as paid). */
+        internal fun isFree(meetup: Meetup): Boolean =
+            meetup.price?.equals("Free", ignoreCase = true) == true
+
+        /**
+         * Selects up to [maxResults] meetups, preferring free events; paid events are
+         * only used to top up when there are not enough free ones. The final list is
+         * sorted by start time.
+         */
+        internal fun prioritizeFree(meetups: List<Meetup>, maxResults: Int): List<Meetup> {
+            val (free, paid) = meetups.sortedBy { it.startAt }.partition { isFree(it) }
+            return (free + paid).take(maxResults).sortedBy { it.startAt }
+        }
 
         /** Minimum number of words a sentence must have to count as descriptive. */
         private const val MIN_SUMMARY_WORDS = 4
@@ -291,6 +320,34 @@ class LumaClient(
          */
         internal fun isRegistrationOpen(availability: String?): Boolean =
             availability?.trim()?.lowercase() == "open"
+
+        /** Common currency codes mapped to their symbol for nicer display. */
+        private val CURRENCY_SYMBOLS: Map<String, String> = mapOf(
+            "usd" to "$", "eur" to "\u20ac", "gbp" to "\u00a3", "jpy" to "\u00a5",
+        )
+
+        /**
+         * Turns Luma's `ticket_info` block into a short human readable price string.
+         * Returns a formatted amount (e.g. "\u20ac25") whenever a concrete price is
+         * present, and "Free" otherwise. Luma marks many events as `is_free = false`
+         * even though they expose no actual price (e.g. approval-based tickets); since
+         * there is nothing to charge/display we treat those as "Free" rather than the
+         * misleading "Paid" with no amount.
+         */
+        internal fun formatPrice(ticketInfo: JsonObject): String? {
+            val price = ticketInfo["price"] as? JsonObject
+            val cents = price?.get("cents")?.jsonPrimitive?.intOrNull
+            val currency = price?.get("currency")?.jsonPrimitive?.contentOrNull()
+            if (cents != null && currency != null) {
+                val symbol = CURRENCY_SYMBOLS[currency.lowercase()]
+                val amount = if (cents % 100 == 0) (cents / 100).toString()
+                else String.format(java.util.Locale.US, "%.2f", cents / 100.0)
+                return if (symbol != null) "$symbol$amount" else "$amount ${currency.uppercase()}"
+            }
+
+            // No concrete amount available -> the event is effectively free to attend.
+            return "Free"
+        }
 
         internal fun cityMatches(meetup: Meetup, city: String): Boolean {
             val target = city.trim().lowercase()

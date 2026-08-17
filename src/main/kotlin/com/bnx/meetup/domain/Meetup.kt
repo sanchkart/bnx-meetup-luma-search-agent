@@ -18,6 +18,8 @@ data class Meetup(
     val timezone: String?,
     /** Short, one-line summary of what the event is about (may be null). */
     val summary: String? = null,
+    /** Human readable ticket price (e.g. "Free", "€25"); null when unknown. */
+    val price: String? = null,
 ) {
     /** Public URL of the event on lu.ma. */
     val url: String

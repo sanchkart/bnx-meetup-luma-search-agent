@@ -5,6 +5,7 @@ import com.bnx.meetup.client.LumaClient
 import com.bnx.meetup.domain.Meetup
 import java.time.OffsetDateTime
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertNull
 import kotlin.test.assertContains
@@ -21,6 +22,7 @@ class MeetupAgentTest {
         start: String = "2026-06-20T17:00:00.000Z",
         slug: String = "abc123",
         summary: String? = null,
+        price: String? = null,
     ) = Meetup(
         apiId = "evt-$slug",
         name = name,
@@ -30,6 +32,7 @@ class MeetupAgentTest {
         cityState = cityState,
         timezone = "Europe/Amsterdam",
         summary = summary,
+        price = price,
     )
 
     @Test
@@ -184,6 +187,84 @@ class MeetupAgentTest {
     fun formatDigestHandlesEmpty() {
         val msg = MeetupAgent.formatDigest("Amsterdam", emptyList())
         assertContains(msg, "No upcoming tech meetups found in Amsterdam")
+    }
+
+    @Test
+    fun formatDigestIncludesPrice() {
+        val msg = MeetupAgent.formatDigest(
+            "Amsterdam",
+            listOf(meetup(name = "Paid Night", slug = "paid1", price = "\u20ac25")),
+        )
+        assertContains(msg, "\u20ac25")
+    }
+
+    @Test
+    fun formatPriceHandlesTicketInfoVariants() {
+        fun ticket(jsonBody: String) =
+            Json.parseToJsonElement(jsonBody).jsonObject
+
+        assertEquals(
+            "Free",
+            LumaClient.formatPrice(ticket("""{"price":null,"is_free":true}""")),
+        )
+        assertEquals(
+            "\u20ac25",
+            LumaClient.formatPrice(ticket("""{"price":{"cents":2500,"currency":"eur"},"is_free":false}""")),
+        )
+        assertEquals(
+            "\u20ac9.99",
+            LumaClient.formatPrice(ticket("""{"price":{"cents":999,"currency":"eur"},"is_free":false}""")),
+        )
+        assertEquals(
+            "10 PLN",
+            LumaClient.formatPrice(ticket("""{"price":{"cents":1000,"currency":"pln"},"is_free":false}""")),
+        )
+        // Luma frequently reports is_free=false with no concrete price (e.g.
+        // approval-based tickets). With no amount to charge we treat these as Free.
+        assertEquals(
+            "Free",
+            LumaClient.formatPrice(ticket("""{"price":null,"is_free":false}""")),
+        )
+        assertEquals(
+            "Free",
+            LumaClient.formatPrice(ticket("""{"price":null,"is_free":true}""")),
+        )
+    }
+
+    @Test
+    fun isFreeOnlyForExplicitFreePrice() {
+        assertTrue(LumaClient.isFree(meetup(price = "Free")))
+        assertTrue(LumaClient.isFree(meetup(price = "free")))
+        assertFalse(LumaClient.isFree(meetup(price = "\u20ac25")))
+        assertFalse(LumaClient.isFree(meetup(price = null)))
+    }
+
+    @Test
+    fun prioritizeFreePrefersFreeEvents() {
+        val paid1 = meetup(name = "Paid 1", slug = "p1", start = "2026-06-20T10:00:00.000Z", price = "\u20ac25")
+        val free1 = meetup(name = "Free 1", slug = "f1", start = "2026-06-20T12:00:00.000Z", price = "Free")
+        val paid2 = meetup(name = "Paid 2", slug = "p2", start = "2026-06-20T14:00:00.000Z", price = "\u20ac10")
+        val free2 = meetup(name = "Free 2", slug = "f2", start = "2026-06-20T16:00:00.000Z", price = "Free")
+
+        // Enough free events -> paid ones are dropped entirely.
+        assertEquals(
+            listOf(free1, free2),
+            LumaClient.prioritizeFree(listOf(paid1, free1, paid2, free2), maxResults = 2),
+        )
+    }
+
+    @Test
+    fun prioritizeFreeTopsUpWithPaidWhenNotEnoughFree() {
+        val paid1 = meetup(name = "Paid 1", slug = "p1", start = "2026-06-20T10:00:00.000Z", price = "\u20ac25")
+        val free1 = meetup(name = "Free 1", slug = "f1", start = "2026-06-20T12:00:00.000Z", price = "Free")
+        val paid2 = meetup(name = "Paid 2", slug = "p2", start = "2026-06-20T14:00:00.000Z", price = "\u20ac10")
+
+        // Only one free event -> earliest paid event fills the remaining slot,
+        // and the result is sorted by start time.
+        assertEquals(
+            listOf(paid1, free1),
+            LumaClient.prioritizeFree(listOf(paid1, free1, paid2), maxResults = 2),
+        )
     }
 
     @Test
