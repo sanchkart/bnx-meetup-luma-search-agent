@@ -42,7 +42,7 @@ data class AppConfig(
         private const val DEFAULT_MAX_RESULTS = 15
         private const val DEFAULT_CACHE_FILE = ".meetup-cache/posted.txt"
         private const val DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-        private const val DEFAULT_MODEL = "mistral-nemo"
+        private const val DEFAULT_MODEL = "ministral-3:14b"
 
         /** Loads and parses [RESOURCE] from the classpath, resolving env placeholders. */
         fun load(resourcePath: String = RESOURCE): AppConfig {

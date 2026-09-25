@@ -1,0 +1,46 @@
+# detekt configuration – layered on top of the bundled defaults (buildUponDefaultConfig=true in pom.xml).
+# Only deviations from the defaults are listed here.
+
+build:
+  maxIssues: 0
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+  MagicNumber:
+    # Business constants live in named companion-object vals; tests and HTTP status codes are fine.
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    excludes: ['**/test/**']
+  ReturnCount:
+    max: 4
+    excludeGuardClauses: true
+  LoopWithTooManyJumpStatements:
+    # `continue`-based filtering plus an early `break` is idiomatic in Kotlin scan loops.
+    maxJumpCount: 3
+  WildcardImport:
+    active: true
+  UnusedPrivateMember:
+    active: true
+
+complexity:
+  LongParameterList:
+    # Constructor injection with defaults is the project's DI style; test fixtures use defaulted builders.
+    constructorThreshold: 8
+    functionThreshold: 7
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInObjects: 20
+  LongMethod:
+    threshold: 80
+
+naming:
+  FunctionNaming:
+    # Test names read as sentences (`retriesTransientServerErrorsWithBackoff`).
+    excludes: ['**/test/**']
+
+exceptions:
+  TooGenericExceptionCaught:
+    # Tool implementations report unexpected failures back to the LLM instead of crashing the agent.
+    excludes: ['**/tool/**']

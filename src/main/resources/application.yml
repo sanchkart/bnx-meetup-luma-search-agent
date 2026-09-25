@@ -3,8 +3,9 @@
 # Values support ${ENV_VAR:default} placeholders: the environment variable wins
 # when set, otherwise the default after ':' is used.
 telegram:
-  # Bot token from @BotFather. Keep secrets out of VCS by leaving this as an
-  # env placeholder and exporting TELEGRAM_BOT_TOKEN at runtime.
+  # Secrets: never commit real values here. Provide them via environment
+  # variables (e.g. in the local, git-ignored IDEA "MainKt" run configuration).
+  # Bot token from @BotFather.
   botToken: ${TELEGRAM_BOT_TOKEN:}
   # Channel @username (public) or numeric chat id.
   chatId: ${TELEGRAM_CHAT_ID:}
@@ -19,9 +20,9 @@ meetup:
 llm:
   # Local LLM served by Ollama (no API key needed). The Koog AI agent talks to a
   # locally running model that supports tool calling. Pull it first with:
-  #   ollama pull qwen2.5
+  #   ollama pull ministral-3:14b
   # Other good tool-capable options: llama3.1, mistral-nemo, qwen2.5:14b.
   # When the model name is empty, the agent falls back to a deterministic
   # (non-LLM) flow that still discovers and posts meetups.
   baseUrl: ${OLLAMA_BASE_URL:http://localhost:11434}
-  model: ${LLM_MODEL:mistral-nemo}
+  model: ${LLM_MODEL:ministral-3:14b}

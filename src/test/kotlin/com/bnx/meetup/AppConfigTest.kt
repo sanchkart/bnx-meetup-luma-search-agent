@@ -32,7 +32,7 @@ class AppConfigTest {
         val config = AppConfig.load()
         assertEquals("Amsterdam", config.meetup.city)
         assertEquals(15, config.meetup.maxResults)
-        assertEquals("mistral-nemo", config.llm.model)
+        assertEquals("ministral-3:14b", config.llm.model)
         assertEquals("http://localhost:11434", config.llm.baseUrl)
     }
 

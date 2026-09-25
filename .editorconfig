@@ -1,0 +1,28 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+# Matches `kotlin.code.style=official` in pom.xml (the IntelliJ Kotlin style guide).
+ktlint_code_style = intellij_idea
+max_line_length = 140
+# Keep multi-line parameter lists / expression bodies as the author wrote them; only enforce the limit above.
+ktlint_standard_class-signature = disabled
+ktlint_standard_function-signature = disabled
+# Test method names like `findEventsFiltersByCity` are more readable than backticked sentences here.
+ktlint_function_naming_ignore_when_annotated_with = Test
+# Kotlin's official style allows trailing commas everywhere; keep them for cleaner diffs.
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+[*.{yml,yaml,xml}]
+indent_size = 2
+
+[pom.xml]
+indent_size = 4

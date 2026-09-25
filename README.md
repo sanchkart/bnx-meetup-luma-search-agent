@@ -42,15 +42,20 @@ src/main/kotlin/com/bnx/meetup/
    - derive a **ticket price** from `ticket_info`. Events with no concrete amount
      are shown as `Free` rather than a misleading "Paid".
 
-   **Free events are prioritized**: pagination keeps scanning until `maxResults`
-   free events are collected (capped at 10 pages and 3× `maxResults` matches), and
-   paid events are only used to top up the list. The result is sorted by start time.
+   **Non-AI events are prioritized over AI ones, and free over paid**: events whose
+   title matches an AI keyword (`ai`, `ml`, `llm`, `gpt`, `agent`, …) get a small
+   reserved share of the digest (`LumaClient.AI_SHARE`, default 30% of `maxResults`)
+   so a few AI meetups always make it in, while the remaining slots go to other tech
+   meetups first. Slots either group cannot fill are topped up from the other group
+   (non-AI first). Pagination keeps scanning until `maxResults` free non-AI events
+   are collected (capped at 10 pages and 3× `maxResults` matches). The result is
+   sorted by start time.
 2. **`DigestFormatter`** renders the results as the HTML message posted to
    Telegram (title link, local start time, city, price, summary).
 3. **`MeetupToolSet`** wraps discovery and posting as Koog `@Tool`s
    (`findTechMeetups`, `postToTelegram`).
 4. **`KoogMeetupAgent`** registers those tools and runs a Koog `AIAgent` backed by
-   a **local, tool-capable model served by Ollama** (default `mistral-nemo`) that
+   a **local, tool-capable model served by Ollama** (default `ministral-3:14b`) that
    finds the meetups and posts the digest autonomously.
 5. **`MeetupAgent`** is the deterministic fallback that does the same work without
    an LLM.
@@ -61,7 +66,7 @@ src/main/kotlin/com/bnx/meetup/
 
 1. Install [Ollama](https://ollama.com) and start it (`ollama serve`, default
    `http://localhost:11434`).
-2. Pull a tool-capable model once: `ollama pull mistral-nemo` (other good options:
+2. Pull a tool-capable model once: `ollama pull ministral-3:14b` (other good options:
    `qwen2.5`, `llama3.1`). The model **must support tool/function calling**.
 3. The agent connects to it automatically using `llm.baseUrl` / `llm.model`.
 
@@ -89,7 +94,7 @@ meetup:
 
 llm:
   baseUrl: ${OLLAMA_BASE_URL:http://localhost:11434}
-  model: ${LLM_MODEL:mistral-nemo}
+  model: ${LLM_MODEL:ministral-3:14b}
 ```
 
 | Key                 | Env override         | Default                    | Description                                                 |
@@ -100,10 +105,10 @@ llm:
 | `meetup.maxResults` | `MEETUP_MAX_RESULTS` | `15`                       | Max number of meetups to include                             |
 | `meetup.cacheFile`  | `MEETUP_CACHE_FILE`  | `.meetup-cache/posted.txt` | File of already-posted event ids (dedup)                     |
 | `llm.baseUrl`       | `OLLAMA_BASE_URL`    | `http://localhost:11434`   | Ollama server URL for the local LLM                          |
-| `llm.model`         | `LLM_MODEL`          | `mistral-nemo`             | Local Ollama tool-capable model used by the agent            |
+| `llm.model`         | `LLM_MODEL`          | `ministral-3:14b`          | Local Ollama tool-capable model used by the agent            |
 
 Blank values fall back to the defaults above (they are hard-coded in `AppConfig`),
-so leaving `llm.model` empty still yields `mistral-nemo` — the deterministic
+so leaving `llm.model` empty still yields `ministral-3:14b` — the deterministic
 `MeetupAgent` path is currently only reachable by changing that default in code.
 
 `DRY_RUN=true` (env var) prints the digest instead of posting, and needs neither
@@ -125,15 +130,21 @@ DRY_RUN=true mvn -q compile exec:java
 Run the Koog AI agent (uses the local Ollama model, finds meetups and posts via tools):
 
 ```bash
-ollama pull mistral-nemo   # once
+ollama pull ministral-3:14b   # once
 export TELEGRAM_BOT_TOKEN="123456:abc..."
 export TELEGRAM_CHAT_ID="@my_tech_channel"
 mvn -q compile exec:java
 ```
 
-> ⚠️ `exec-maven-plugin` in `pom.xml` is configured with
-> `<mainClass>com.ls.meetup.MainKt</mainClass>`, but the entry point is
-> `com.bnx.meetup.MainKt`. Fix that value before `exec:java` will run.
+The process exits with status `1` on a configuration error or a failed run, so
+cron/CI can detect failures.
+
+### Code quality
+
+`mvn verify` runs the tests plus [ktlint](https://pinterest.github.io/ktlint/)
+(style, configured in `.editorconfig`) and [detekt](https://detekt.dev/)
+(code smells, configured in `detekt.yml`). Use `mvn ktlint:format` to auto-fix
+formatting.
 
 ## Scheduling
 

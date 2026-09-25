@@ -13,7 +13,7 @@ object DigestFormatter {
     /** Builds an HTML-formatted digest message suitable for Telegram. */
     fun format(city: String, meetups: List<Meetup>): String {
         if (meetups.isEmpty()) {
-            return "No upcoming tech meetups found in $city right now. \uD83D\uDD0D"
+            return "No upcoming tech meetups found in ${escape(city)} right now. \uD83D\uDD0D"
         }
         return buildString {
             append("\uD83D\uDDD3 <b>Upcoming tech meetups in ").append(escape(city)).append("</b>\n\n")

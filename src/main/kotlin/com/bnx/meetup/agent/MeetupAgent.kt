@@ -1,14 +1,16 @@
 package com.bnx.meetup.agent
 
+import com.bnx.meetup.client.luma.LumaClient
+import com.bnx.meetup.client.luma.filter.MeetupFilters
+import com.bnx.meetup.client.telegram.TelegramClient
 import com.bnx.meetup.domain.Meetup
-import com.bnx.meetup.utils.PostedCache
-import com.bnx.meetup.client.LumaClient
-import com.bnx.meetup.client.TelegramClient
 import com.bnx.meetup.utils.DigestFormatter
+import com.bnx.meetup.utils.PostedCache
 
 /**
- * Orchestrates the flow: discover tech meetups in a city via Luma and publish a
- * digest to a Telegram channel.
+ * Deterministic (LLM-free) orchestration: discover tech meetups in a city via Luma
+ * and publish a digest to a Telegram channel. Used as the fallback when no local
+ * LLM is configured.
  */
 class MeetupAgent(
     private val lumaClient: LumaClient,
@@ -22,13 +24,15 @@ class MeetupAgent(
      * previous run are filtered out, so the channel never receives duplicates.
      * Successfully posted meetups are then recorded in the cache.
      *
+     * @param city city to search, as configured in `meetup.city`.
+     * @param maxResults digest size, as configured in `meetup.maxResults`.
      * @param dryRun when true, the message is only built and returned, not sent.
-     * @return the [Result] describing what was found and (optionally) posted.
+     * @return the [RunResult] describing what was found and (optionally) posted.
      */
     fun run(
-        city: String = "Amsterdam",
-        keywords: List<String> = LumaClient.DEFAULT_TECH_KEYWORDS,
-        maxResults: Int = 15,
+        city: String,
+        maxResults: Int,
+        keywords: List<String> = MeetupFilters.DEFAULT_TECH_KEYWORDS,
         dryRun: Boolean = false,
     ): RunResult {
         val found = lumaClient.findEvents(city = city, keywords = keywords, maxResults = maxResults)
@@ -48,14 +52,4 @@ class MeetupAgent(
         val messageId: Long?,
         val posted: Boolean,
     )
-
-    companion object {
-        /**
-         * Builds an HTML-formatted digest message suitable for Telegram.
-         *
-         * Delegates to [DigestFormatter]; retained for backwards-compatible call sites.
-         */
-        fun formatDigest(city: String, meetups: List<Meetup>): String =
-            DigestFormatter.format(city, meetups)
-    }
 }

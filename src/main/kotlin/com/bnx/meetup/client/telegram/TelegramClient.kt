@@ -1,4 +1,4 @@
-package com.bnx.meetup.client
+package com.bnx.meetup.client.telegram
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -22,9 +22,9 @@ class TelegramClient(
     private val botToken: String,
     private val chatId: String,
     private val httpClient: HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(15))
+        .connectTimeout(CONNECT_TIMEOUT)
         .build(),
-    private val baseUrl: String = "https://api.telegram.org",
+    private val baseUrl: String = DEFAULT_BASE_URL,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -41,18 +41,28 @@ class TelegramClient(
         }
         val request = HttpRequest.newBuilder(URI.create("$baseUrl/bot$botToken/sendMessage"))
             .header("content-type", "application/x-www-form-urlencoded; charset=UTF-8")
-            .timeout(Duration.ofSeconds(20))
+            .timeout(REQUEST_TIMEOUT)
             .POST(HttpRequest.BodyPublishers.ofString(form, StandardCharsets.UTF_8))
             .build()
 
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
         val body = runCatching { json.parseToJsonElement(response.body()).jsonObject }.getOrNull()
         val ok = body?.get("ok")?.jsonPrimitive?.content == "true"
-        check(response.statusCode() == 200 && ok) {
-            "Telegram sendMessage failed (HTTP ${response.statusCode()}): ${response.body().take(300)}"
+        check(response.statusCode() == HTTP_OK && ok) {
+            "Telegram sendMessage failed (HTTP ${response.statusCode()}): ${response.body().take(ERROR_BODY_EXCERPT)}"
         }
         return body["result"]?.jsonObject?.get("message_id")?.jsonPrimitive?.content?.toLongOrNull() ?: -1L
     }
 
     private fun enc(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8)
+
+    private companion object {
+        const val DEFAULT_BASE_URL = "https://api.telegram.org"
+        const val HTTP_OK = 200
+
+        /** How much of an error response body is quoted in exception messages. */
+        const val ERROR_BODY_EXCERPT = 300
+        val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(15)
+        val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(20)
+    }
 }
