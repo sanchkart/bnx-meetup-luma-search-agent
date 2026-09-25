@@ -12,13 +12,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.code.style>official</kotlin.code.style>
         <kotlin.compiler.jvmTarget>17</kotlin.compiler.jvmTarget>
-        <kotlin.version>2.3.21</kotlin.version>
-        <kotlinx.serialization.version>1.9.0</kotlinx.serialization.version>
-        <kotlinx.coroutines.version>1.10.2</kotlinx.coroutines.version>
-        <koog.version>1.0.0</koog.version>
-        <snakeyaml.version>2.2</snakeyaml.version>
-        <junit.version>5.10.0</junit.version>
-        <surefire.version>3.5.5</surefire.version>
+        <kotlin.version>2.4.20</kotlin.version>
+        <kotlinx.serialization.version>1.11.0</kotlinx.serialization.version>
+        <kotlinx.coroutines.version>1.11.0</kotlinx.coroutines.version>
+        <koog.version>1.3.0</koog.version>
+        <snakeyaml.version>2.7</snakeyaml.version>
+        <junit.version>6.1.3</junit.version>
+        <surefire.version>3.6.0</surefire.version>
         <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
         <ktlint-maven-plugin.version>3.7.1</ktlint-maven-plugin.version>
         <detekt-maven-plugin.version>1.23.8</detekt-maven-plugin.version>

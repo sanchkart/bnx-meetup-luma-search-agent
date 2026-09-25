@@ -114,11 +114,6 @@ so leaving `llm.model` empty still yields `ministral-3:14b` — the deterministi
 `DRY_RUN=true` (env var) prints the digest instead of posting, and needs neither
 Telegram credentials nor Ollama.
 
-> ⚠️ The committed `application.yml` currently has a real bot token and chat id as
-> placeholder defaults. Replace them with empty defaults and pass the real values
-> through `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`, and revoke the exposed token
-> via @BotFather.
-
 ## Run
 
 Preview without posting (no credentials, no Ollama needed):
@@ -157,7 +152,7 @@ Run it daily via `cron`, e.g. every morning at 08:00:
 ## Requirements
 
 - JDK 17+ (required by Koog) and Maven.
-- Kotlin 2.3.21, Koog 1.0.0 (see `pom.xml`).
+- Kotlin 2.4.20, Koog 1.3.0 (see `pom.xml`).
 - [Ollama](https://ollama.com) running locally with a tool-capable model pulled
   (only needed for the LLM-driven agent; `DRY_RUN` works without it).
 
